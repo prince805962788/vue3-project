@@ -7,13 +7,13 @@ export const createFileChunk = (file: File, size = CHUNK_SIZE) => {
   while (cur < file.size) {
     chunks.push({
       index: cur,
-      chunk: file.slice(cur, cur + size),
+      file: file.slice(cur, cur + size),
     });
     cur = cur + size;
   }
   return chunks;
 };
-// 计算文件哈希
+// 正常异步计算切片后的文件哈希
 export const calculateHashSample = (file: File) => {
   // 布隆过滤器  判断一个数据存在与否
   // 1个G的文件，抽样后5M以内

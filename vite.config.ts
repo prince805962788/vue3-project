@@ -6,6 +6,16 @@ import path from "path";
 // https://vitejs.dev/config/
 export default defineConfig({
   resolve: {
+    extensions: [
+      ".tsx",
+      ".ts",
+      ".mjs",
+      ".js",
+      ".jsx",
+      ".vue",
+      ".json",
+      ".wasm",
+    ],
     alias: {
       "@": path.resolve(__dirname, "src"),
     },

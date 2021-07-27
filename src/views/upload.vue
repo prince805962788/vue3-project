@@ -15,28 +15,30 @@
     </div>
   </div>
 </template>
-<script>
-import { computed, defineComponent, reactive, ref, onMounted } from "vue";
-import { createFileChunk, calculateHashSample } from "@/utils/file.ts";
+<script lang="ts">
+import { computed, defineComponent, reactive, Ref, ref, onMounted } from "vue";
+import { createFileChunk, calculateHashSample } from "@/utils/file";
 export default defineComponent({
   name: "upload",
   setup() {
-    const drag = ref(null);
+    const drag: Ref<HTMLElement | any> = ref(null);
     const state = reactive({
-      file: null,
+      file: {} as File,
+      chunks: [],
+      progress: 0,
     });
     onMounted(() => {
       // 文件拖拽功能
-      drag.value.addEventListener("dragover", (e) => {
+      drag.value.addEventListener("dragover", (e: Event) => {
         drag.value.style.borderColor = "red";
         e.preventDefault();
       });
-      drag.value.addEventListener("dragleave", (e) => {
+      drag.value.addEventListener("dragleave", (e: Event) => {
         drag.value.style.borderColor = "#efefef";
         e.preventDefault();
       });
-      drag.value.addEventListener("drop", (e) => {
-        const fileList = e.dataTransfer.files;
+      drag.value.addEventListener("drop", (e: Event | any) => {
+        const fileList = e?.dataTransfer?.files;
         drag.value.style.borderColor = "#efefef";
         state.file = fileList[0];
         e.preventDefault();
@@ -44,21 +46,38 @@ export default defineComponent({
     });
     // 计算属性：进度条
     const uploadProgress = computed(() => {
-      return 0;
+      return state.progress;
     });
     // 选择文件点击处理
-    const handleFileChange = (e) => {
-      const file = e.target.files;
+    const handleFileChange = (e: any) => {
+      const file = e?.target?.files;
       if (!file) return;
       state.file = file;
       console.log("选中的文件：", state.file);
+    };
+    // 使用webWork计算无损的文件hash
+    const calculateHashWorker = (chunks: any[]) => {
+      return new Promise((resolve) => {
+        const worker = new Worker("/static/hash.js");
+        worker.postMessage({ chunks });
+        worker.onmessage = (e) => {
+          const { progress, hash } = e.data;
+          state.progress = Number(progress.toFixed(2));
+          if (hash) {
+            resolve(hash);
+          }
+        };
+      });
     };
     // 点击上传
     const uploadFile = async () => {
       if (!state.file) return;
       const chunks = createFileChunk(state.file); // 文件切片
       console.log("当前的文件切片：", chunks);
-      const hash = await calculateHashSample(state.file);
+      // 正常异步计算hash值，针对小文件
+      // const hash = await calculateHashSample(state.file);
+      // webWork计算hash
+      const hash = await calculateHashWorker(chunks);
       console.log("当前的文件哈希：", hash);
     };
     return {
