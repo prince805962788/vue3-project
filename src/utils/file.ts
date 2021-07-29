@@ -42,10 +42,22 @@ export const calculateHashSample = (file: File) => {
     }
     //
     reader.readAsArrayBuffer(new Blob(chunks)); //读取文件blob数据
-    reader.onload = (e) => {
+    reader.onload = (e: ProgressEvent) => {
       //读取完毕后放入缓存区
-      spark.append(e.target?.result as ArrayBuffer);
+      const target = e.target as FileReader;
+      spark.append(target.result as ArrayBuffer);
       resolve(spark.end()); //计算完的hash结果返回
+    };
+  });
+};
+//
+export const appendToSpark = (file: File) => {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.readAsArrayBuffer(file);
+    reader.onload = (e: ProgressEvent) => {
+      const target = e.target as FileReader;
+      resolve(target.result as ArrayBuffer);
     };
   });
 };
