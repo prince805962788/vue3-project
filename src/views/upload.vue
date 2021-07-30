@@ -21,6 +21,7 @@ import {
   createFileChunk,
   calculateHashSample,
   appendToSpark,
+  CHUNK_SIZE,
 } from "@/utils/file";
 import SparkMD5 from "spark-md5";
 import axios from "axios";
@@ -39,6 +40,7 @@ export default defineComponent({
       file: {} as File,
       chunks: <any[]>[],
       progress: 0,
+      hash: "",
     });
     onMounted(() => {
       // 文件拖拽功能
@@ -117,11 +119,11 @@ export default defineComponent({
       // requestIdleCallback计算hash
       // const hash = await calculateHashIdle(chunks);
       // webWork计算hash
-      const hash = await calculateHashWorker(chunks);
-      console.log("当前的文件哈希：", hash);
+      state.hash = (await calculateHashWorker(chunks)) as string;
+      console.log("当前的文件哈希：", state.hash);
       // 问一下后端，文件是否上传过，如果没有，是否有存在的切片
       const { data } = await axios.post("/api/checkfile", {
-        hash: hash,
+        hash: state.hash,
         ext: state.file.name.split(".").pop(),
       });
       const { uploaded, uploadedList } = data.data;
@@ -129,9 +131,9 @@ export default defineComponent({
         // 秒传
       }
       state.chunks = chunks.map((chunk, index) => {
-        const name = hash + "-" + index;
+        const name = state.hash + "-" + index;
         return {
-          hash,
+          hash: state.hash,
           name,
           index,
           chunk: chunk.file,
@@ -155,7 +157,18 @@ export default defineComponent({
       // 上传可能报错
       // 报错之后，进度条变红，开始重试
       // 一个切片重试失败三次，整体全部终止
-      await sendRequest(request, 4);
+      const requestChunks = [];
+      // 把请求每4个进行拆分
+      while (request.length) {
+        const spliceItem = request.splice(0, 4);
+        requestChunks.push(spliceItem);
+      }
+      // 使用for of逐步发出请求，每次并发4个，有结果后，再发出下一个4个请求
+      for (const item of requestChunks) {
+        await sendRequest(item, 4);
+      }
+      // 发送合并文件的请求
+      mergeRequest();
     }
     async function sendRequest(requestList: any[], limit = 4) {
       return new Promise((resolve, reject): void => {
@@ -169,7 +182,7 @@ export default defineComponent({
           if (!task) return;
           const { form, index } = task;
           try {
-            await axios.post("/uploadfile", form, {
+            await axios.post("/api/uploadfile", form, {
               onUploadProgress: (progress) => {
                 state.chunks[index].progress = Number(
                   ((progress.loaded / progress.total) * 100).toFixed(2)
@@ -197,6 +210,14 @@ export default defineComponent({
           limit--;
         }
       });
+    }
+    async function mergeRequest() {
+      const ret = await axios.post("/api/mergefile", {
+        ext: state.file.name.split(".").pop(),
+        size: CHUNK_SIZE,
+        hash: state.hash,
+      });
+      const url = ret.data.url;
     }
     return {
       drag,

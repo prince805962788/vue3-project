@@ -1,5 +1,5 @@
 import sparkMD5 from "spark-md5";
-const CHUNK_SIZE = 1 * 1024 * 1024; //切片默认大小1m
+export const CHUNK_SIZE = 1 * 1024 * 1024; //切片默认大小1m
 // 文件切片
 export const createFileChunk = (file: File, size = CHUNK_SIZE) => {
   const chunks = [];
